@@ -36,7 +36,7 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
     private final UserDetailsServiceImpl userDetailsService;
-    @Value("${app.cors.allowed-origins:https://citizen-grievance-management-portal-6edbgmzcr-coder26.vercel.app,http://localhost:5173,http://localhost:3000}")
+    @Value("${app.cors.allowed-origins:https://citizen-grievance-management-portal.vercel.app,http://localhost:5173,http://localhost:3000}")
 private String allowedOrigins;
 
     @Bean
