@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: grievance-portal-backend
+    runtime: java
+    region: oregon
+    plan: free
+    rootDir: Grievance Management Portal/backend
+    buildCommand: mvn clean package -DskipTests
+    startCommand: java -Xms256m -Xmx512m -jar target/grievance-portal-backend-1.0.0.jar
+    healthCheckPath: /api/health
+    envVars:
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: MAIL_ENABLED
+        value: "false"
+      - key: JAVA_TOOL_OPTIONS
+        value: "-Xms256m -Xmx512m"

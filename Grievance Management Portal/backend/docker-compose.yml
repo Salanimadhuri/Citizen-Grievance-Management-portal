@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+
+  backend:
+    build: .
+    container_name: grievance-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/grievance-portal
+      - JWT_SECRET=${JWT_SECRET:-ChangeThisToAStrongSecretInProduction!Min32Chars}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
+      - UPLOAD_DIR=uploads
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7.0
+    container_name: grievance-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
+  uploads_data:

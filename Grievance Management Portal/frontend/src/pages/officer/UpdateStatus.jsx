@@ -27,8 +27,9 @@ const UpdateStatus = () => {
       setError('');
       
       const response = await complaintAPI.getOfficerById(id);
-      setComplaint(response.data);
-      setStatus(response.data.status);
+      const data = response?.data?.data || response?.data;
+      setComplaint(data);
+      setStatus(data.status);
     } catch (error) {
       console.error('Officer complaint fetch error:', error);
       setError(error.response?.data?.message || 'Complaint not found or not assigned to you');
@@ -45,10 +46,9 @@ const UpdateStatus = () => {
     try {
       console.log('Updating complaint status:', { id, status, remarks });
       const response = await complaintAPI.update(id, { status, remarks });
-      console.log('Status update successful:', response.data);
+      const updated = response?.data?.data || response?.data;
       setSuccess(true);
-      // Update local complaint state
-      setComplaint(response.data);
+      setComplaint(updated);
       setTimeout(() => navigate('/officer/complaints'), 2000);
     } catch (err) {
       console.error('Status update error:', err);

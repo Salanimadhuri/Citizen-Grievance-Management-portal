@@ -17,11 +17,11 @@ const AdminLayout = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
       <Navbar />
       <div className="flex">
         <Sidebar menuItems={menuItems} />
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-6 min-w-0">
           <Outlet />
         </main>
       </div>

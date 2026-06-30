@@ -27,7 +27,7 @@ const OfficerRegister = () => {
     try {
       const response = await api.get('/departments');
       console.log('Departments fetched:', response.data);
-      setDepartments(response.data);
+      setDepartments(response.data?.data || response.data);
     } catch (error) {
       console.error('Error fetching departments:', error);
       setError('Failed to load departments');
@@ -139,7 +139,7 @@ const OfficerRegister = () => {
             >
               <option value="">Select department</option>
               {departments.map((dept) => (
-                <option key={dept._id} value={dept._id}>
+                <option key={dept.id || dept._id} value={dept.id || dept._id}>
                   {dept.name}
                 </option>
               ))}

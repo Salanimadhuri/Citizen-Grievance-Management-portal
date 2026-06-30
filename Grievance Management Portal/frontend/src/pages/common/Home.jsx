@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { FileText, Users, Shield, TrendingUp, CheckCircle, Clock, Eye, BarChart3, ArrowRight } from 'lucide-react';
+import { FileText, Eye, Shield, BarChart3, ArrowRight } from 'lucide-react';
 import { useEffect } from 'react';
 import TextType from '../../components/TextType';
 import ClickSpark from '../../components/ClickSpark';
@@ -102,26 +102,10 @@ const Home = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
               {[
-                { 
-                  icon: FileText, 
-                  title: 'Submit Complaints', 
-                  desc: 'Easy complaint submission with location tracking and image uploads' 
-                },
-                { 
-                  icon: Eye, 
-                  title: 'Track Progress', 
-                  desc: 'Real-time status updates and notifications throughout the process' 
-                },
-                { 
-                  icon: Shield, 
-                  title: 'Secure & Transparent', 
-                  desc: 'End-to-end encrypted process with complete transparency' 
-                },
-                { 
-                  icon: BarChart3, 
-                  title: 'Analytics', 
-                  desc: 'Comprehensive insights and analytics for better governance' 
-                },
+                { icon: FileText, title: 'Submit Complaints', desc: 'Easy complaint submission with location tracking and image uploads' },
+                { icon: Eye,      title: 'Track Progress',   desc: 'Real-time status updates and notifications throughout the process' },
+                { icon: Shield,   title: 'Secure & Transparent', desc: 'End-to-end encrypted process with complete transparency' },
+                { icon: BarChart3,title: 'Analytics',        desc: 'Comprehensive insights and analytics for better governance' },
               ].map((feature, index) => (
                 <div key={index} className="bg-white/90 backdrop-blur-sm rounded-xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-primary-200 hover:scale-105">
                   <div className="bg-primary-100 w-16 h-16 rounded-lg flex items-center justify-center mb-6">
@@ -138,8 +122,6 @@ const Home = () => {
         {/* Interactive Carousel Section */}
         <section className="py-20 bg-gray-50/80 backdrop-blur-sm relative z-10">
           <div className="max-w-7xl mx-auto px-6">
-            
-            {/* Two-column layout */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
               {/* Left Side - Carousel */}
               <div style={{ height: '600px', position: 'relative' }}>

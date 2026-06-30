@@ -4,17 +4,15 @@ import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import Aurora from './components/Aurora';
 
-// Layouts
 import CitizenLayout from './layouts/CitizenLayout';
 import OfficerLayout from './layouts/OfficerLayout';
 import AdminLayout from './layouts/AdminLayout';
 
-// Auth Pages
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import OfficerRegister from './pages/auth/OfficerRegister';
+import ForgotPassword from './pages/auth/ForgotPassword';
 
-// Citizen Pages
 import CitizenDashboard from './pages/citizen/CitizenDashboard';
 import SubmitComplaint from './pages/citizen/SubmitComplaint';
 import MyComplaints from './pages/citizen/MyComplaints';
@@ -22,7 +20,6 @@ import ComplaintDetails from './pages/citizen/ComplaintDetails';
 import Feedback from './pages/citizen/Feedback';
 import CitizenCommunication from './pages/citizen/CitizenCommunication';
 
-// Officer Pages
 import OfficerDashboard from './pages/officer/OfficerDashboard';
 import AssignedComplaints from './pages/officer/AssignedComplaints';
 import OfficerComplaints from './pages/officer/OfficerComplaints';
@@ -32,7 +29,6 @@ import OfficerFeedback from './pages/officer/OfficerFeedback';
 import OfficerCommunication from './pages/officer/OfficerCommunication';
 import QuickActions from './pages/officer/QuickActions';
 
-// Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ComplaintManagement from './pages/admin/ComplaintManagement';
 import AdminComplaintDetails from './pages/admin/AdminComplaintDetails';
@@ -45,31 +41,45 @@ import Analytics from './pages/admin/Analytics';
 import AdminHeatmap from './pages/admin/AdminHeatmap';
 import AIDashboard from './pages/admin/AIDashboard';
 
-// Common Pages
 import Home from './pages/common/Home';
 import About from './pages/common/About';
 import NotFound from './pages/common/NotFound';
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <ErrorBoundary>
-          {/* Global Aurora Background */}
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
           <Aurora
-            colorStops={["#d8eed8", "#a0f3b5", "#bbb9c6"]}
-            blend={0.5}
-            amplitude={1.0}
-            speed={1}
+            colorStops={["#1E293B", "#4682B4", "#06B6D4"]}
+            blend={0.4}
+            amplitude={0.8}
+            speed={0.8}
           />
           
           <Routes>
-          {/* Public Routes */}
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/officer-register" element={<OfficerRegister />} />
+          <Route path="/login" element={
+            <ProtectedRoute requireAuth={false}>
+              <Login />
+            </ProtectedRoute>
+          } />
+          <Route path="/register" element={
+            <ProtectedRoute requireAuth={false}>
+              <Register />
+            </ProtectedRoute>
+          } />
+          <Route path="/officer-register" element={
+            <ProtectedRoute requireAuth={false}>
+              <OfficerRegister />
+            </ProtectedRoute>
+          } />
+          <Route path="/forgot-password" element={
+            <ProtectedRoute requireAuth={false}>
+              <ForgotPassword />
+            </ProtectedRoute>
+          } />
 
           {/* Citizen Routes */}
           <Route
@@ -135,9 +145,9 @@ function App() {
           {/* 404 Route */}
           <Route path="*" element={<NotFound />} />
           </Routes>
-        </ErrorBoundary>
-      </BrowserRouter>
-    </AuthProvider>
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

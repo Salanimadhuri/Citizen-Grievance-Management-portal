@@ -25,8 +25,9 @@ const MyComplaints = () => {
   const fetchComplaints = async () => {
     try {
       const response = await complaintAPI.getMy();
-      setComplaints(response.data);
-      setFilteredComplaints(response.data);
+      const data = response?.data?.data || response?.data || [];
+      setComplaints(data);
+      setFilteredComplaints(data);
     } catch (error) {
       console.error('Error fetching complaints:', error);
     } finally {

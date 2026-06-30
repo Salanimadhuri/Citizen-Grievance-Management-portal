@@ -1,143 +1,120 @@
 import { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin, Navigation } from 'lucide-react';
+import { MapPin, Navigation, Loader } from 'lucide-react';
 
-// Fix for default markers in Leaflet
+// Fix Leaflet default icon paths broken by Vite bundling
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
+const DEFAULT = { lat: 13.6288, lng: 79.4192 };
+
 const MapPicker = ({ onLocationSelect, initialLocation }) => {
-  const [selectedLocation, setSelectedLocation] = useState(
-    initialLocation || { lat: 13.6288, lng: 79.4192 }
-  );
+  const [location, setLocation] = useState(initialLocation || DEFAULT);
+  const [address, setAddress] = useState('');
+  const [gpsLoading, setGpsLoading] = useState(false);
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
 
   useEffect(() => {
-    if (!mapRef.current || mapInstanceRef.current) return;
+    if (mapInstanceRef.current) return;
 
-    // Initialize Leaflet map
-    const map = L.map(mapRef.current).setView([selectedLocation.lat, selectedLocation.lng], 13);
+    const map = L.map(mapRef.current, { zoomControl: true }).setView([location.lat, location.lng], 13);
 
-    // Add OpenStreetMap tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       maxZoom: 19,
     }).addTo(map);
 
-    // Add marker
-    const marker = L.marker([selectedLocation.lat, selectedLocation.lng], {
-      draggable: true
-    }).addTo(map);
+    const marker = L.marker([location.lat, location.lng], { draggable: true }).addTo(map);
+    marker.bindPopup('Drag or click map to move').openPopup();
+
+    const updateLocation = async (lat, lng) => {
+      setLocation({ lat, lng });
+      onLocationSelect?.({ latitude: lat, longitude: lng });
+      // Reverse geocode
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
+        );
+        const data = await res.json();
+        setAddress(data.display_name || '');
+      } catch { /* offline — skip */ }
+    };
+
+    marker.on('dragend', (e) => {
+      const { lat, lng } = e.target.getLatLng();
+      updateLocation(lat, lng);
+    });
+
+    map.on('click', (e) => {
+      const { lat, lng } = e.latlng;
+      marker.setLatLng([lat, lng]);
+      updateLocation(lat, lng);
+    });
 
     mapInstanceRef.current = map;
     markerRef.current = marker;
 
-    // Handle map click
-    map.on('click', (e) => {
-      const { lat, lng } = e.latlng;
-      const newLocation = { lat, lng };
-      
-      marker.setLatLng([lat, lng]);
-      setSelectedLocation(newLocation);
-      if (onLocationSelect) {
-        onLocationSelect({ latitude: lat, longitude: lng });
-      }
-    });
-
-    // Handle marker drag
-    marker.on('dragend', (e) => {
-      const { lat, lng } = e.target.getLatLng();
-      const newLocation = { lat, lng };
-      
-      setSelectedLocation(newLocation);
-      if (onLocationSelect) {
-        onLocationSelect({ latitude: lat, longitude: lng });
-      }
-    });
-
-    // Cleanup function
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
+    return () => { mapInstanceRef.current?.remove(); mapInstanceRef.current = null; };
   }, []);
 
-  const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          const newLocation = { lat, lng };
-          
-          setSelectedLocation(newLocation);
-          if (onLocationSelect) {
-            onLocationSelect({ latitude: lat, longitude: lng });
-          }
-
-          // Update map and marker
-          if (mapInstanceRef.current && markerRef.current) {
-            mapInstanceRef.current.setView([lat, lng], 13);
-            markerRef.current.setLatLng([lat, lng]);
-          }
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-          alert('Unable to get your location. Please click on the map to select a location.');
-        }
-      );
-    } else {
-      alert('Geolocation is not supported by your browser.');
-    }
+  const useGPS = () => {
+    if (!navigator.geolocation) return alert('Geolocation not supported');
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const { latitude: lat, longitude: lng } = coords;
+        setLocation({ lat, lng });
+        onLocationSelect?.({ latitude: lat, longitude: lng });
+        mapInstanceRef.current?.setView([lat, lng], 15);
+        markerRef.current?.setLatLng([lat, lng]);
+        setGpsLoading(false);
+      },
+      () => { setGpsLoading(false); alert('Could not get GPS position.'); }
+    );
   };
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <label className="label flex items-center gap-2">
-          <MapPin size={18} />
-          Select Location on Map
+          <MapPin size={16} /> Select Location
         </label>
-        <button
-          type="button"
-          onClick={getCurrentLocation}
-          className="flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 font-medium"
-        >
-          <Navigation size={16} />
-          Use Current Location
+        <button type="button" onClick={useGPS} disabled={gpsLoading}
+          className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50">
+          {gpsLoading ? <Loader size={14} className="animate-spin" /> : <Navigation size={14} />}
+          Use My Location
         </button>
       </div>
 
-      <div 
-        ref={mapRef} 
-        style={{ height: '400px', width: '100%', borderRadius: '8px' }}
-        className="border border-gray-300"
-      />
+      <div ref={mapRef} style={{ height: '360px', width: '100%', borderRadius: '8px', zIndex: 0 }}
+        className="border border-gray-300 shadow-sm" />
 
-      <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-        <p className="text-sm text-gray-600 mb-1">Selected Coordinates:</p>
-        <div className="flex gap-4 text-sm">
-          <span className="font-medium text-gray-900">
-            Latitude: {selectedLocation.lat.toFixed(6)}
-          </span>
-          <span className="font-medium text-gray-900">
-            Longitude: {selectedLocation.lng.toFixed(6)}
-          </span>
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div className="bg-gray-50 px-3 py-2 rounded border border-gray-200">
+          <span className="text-gray-500">Lat: </span>
+          <span className="font-mono font-semibold">{location.lat.toFixed(6)}</span>
+        </div>
+        <div className="bg-gray-50 px-3 py-2 rounded border border-gray-200">
+          <span className="text-gray-500">Lng: </span>
+          <span className="font-mono font-semibold">{location.lng.toFixed(6)}</span>
         </div>
       </div>
 
-      <p className="text-xs text-gray-500">
-        💡 Click anywhere on the map or drag the marker to select the complaint location
-      </p>
+      {address && (
+        <p className="text-xs text-gray-500 flex items-start gap-1">
+          <MapPin size={12} className="mt-0.5 flex-shrink-0" />
+          {address}
+        </p>
+      )}
+
+      <p className="text-xs text-gray-400">Click on the map or drag the marker to pinpoint the complaint location.</p>
     </div>
   );
 };

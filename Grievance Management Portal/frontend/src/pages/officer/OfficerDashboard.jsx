@@ -29,7 +29,7 @@ const OfficerDashboard = () => {
       setError('');
       
       const response = await complaintAPI.getOfficerComplaints();
-      const complaints = response?.data || [];
+      const complaints = response?.data?.data || response?.data || [];
       
       const today = new Date().toDateString();
       const safeComplaints = Array.isArray(complaints) ? complaints : [];
@@ -139,7 +139,7 @@ const OfficerDashboard = () => {
                 <div 
                   key={complaint._id || complaint.id} 
                   className="p-4 border border-gray-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 cursor-pointer transition-all group"
-                  onClick={() => navigate(`/officer/manage/${complaint._id}`)}
+                  onClick={() => navigate(`/officer/manage/${complaint.id || complaint._id}`)}
                 >
                   <div className="flex justify-between items-start gap-4">
                     <div className="flex-1">

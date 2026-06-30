@@ -31,8 +31,7 @@ const AdminDashboard = () => {
       
       // Fetch all complaints directly
       const complaintsResponse = await complaintAPI.getAll();
-      console.log('Fetched complaints:', complaintsResponse.data);
-      const complaints = complaintsResponse.data;
+      const complaints = complaintsResponse.data?.data || complaintsResponse.data || [];
       setRecentComplaints(complaints.slice(0, 5)); // Show latest 5
       
       // Calculate stats from complaints
@@ -167,8 +166,8 @@ const AdminDashboard = () => {
               </thead>
               <tbody>
                 {recentComplaints.map((complaint) => (
-                  <tr key={complaint._id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-2 px-3 text-sm text-gray-600">#{complaint._id.slice(-6)}</td>
+                  <tr key={complaint.id || complaint._id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-2 px-3 text-sm text-gray-600">#{(complaint.id || complaint._id || '').slice(-6)}</td>
                     <td className="py-2 px-3 text-sm text-gray-900">{complaint.userId?.name || 'N/A'}</td>
                     <td className="py-2 px-3 text-sm font-medium text-gray-900">{complaint.title}</td>
                     <td className="py-2 px-3">
@@ -179,7 +178,7 @@ const AdminDashboard = () => {
                     </td>
                     <td className="py-2 px-3">
                       <button
-                        onClick={() => navigate(`/admin/complaints/${complaint._id}`)}
+                        onClick={() => navigate(`/admin/complaints/${complaint.id || complaint._id}`)}
                         className="text-primary-600 hover:text-primary-700"
                         title="View Details"
                       >

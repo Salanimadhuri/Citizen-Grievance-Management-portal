@@ -22,8 +22,8 @@ const AdminComplaintDetails = () => {
       
       console.log('Admin fetching complaint details for ID:', id);
       const response = await complaintAPI.getById(id);
-      console.log('Admin complaint details received:', response.data);
-      setComplaint(response.data);
+      const data = response?.data?.data || response?.data;
+      setComplaint(data);
     } catch (error) {
       console.error('Admin complaint fetch error:', error);
       setError(error.response?.data?.message || 'Failed to load complaint details');
@@ -190,7 +190,7 @@ const AdminComplaintDetails = () => {
 
       <div className="flex gap-3">
         <button
-          onClick={() => navigate(`/admin/assign?complaintId=${complaint._id}`)}
+          onClick={() => navigate(`/admin/assign?complaintId=${complaint.id || complaint._id}`)}
           className="btn-primary"
         >
           Assign Complaint

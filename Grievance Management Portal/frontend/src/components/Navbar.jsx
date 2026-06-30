@@ -23,7 +23,7 @@ const Navbar = () => {
           />
           <div>
             <h1 className="text-xl font-bold text-gray-900">Citizen Grievance Management Portal</h1>
-            <p className="text-xs text-gray-500">{user?.role} Dashboard</p>
+            <p className="text-xs text-gray-500 capitalize">{user?.role} Dashboard</p>
           </div>
         </div>
 

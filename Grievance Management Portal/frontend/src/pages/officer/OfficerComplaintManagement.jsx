@@ -34,8 +34,9 @@ const OfficerComplaintManagement = () => {
       setError('');
       
       const response = await complaintAPI.getOfficerById(id);
-      setComplaint(response.data);
-      setStatus(response.data.status || 'Assigned');
+      const data = response?.data?.data || response?.data;
+      setComplaint(data);
+      setStatus(data.status || 'Assigned');
     } catch (error) {
       console.error('Error fetching complaint:', error);
       setError('Failed to load complaint details');

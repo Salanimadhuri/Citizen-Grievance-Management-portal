@@ -15,36 +15,61 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser && token) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
-  }, [token]);
+    const verifySession = async () => {
+      const storedUser = localStorage.getItem('user');
+      const storedToken = localStorage.getItem('token');
+      
+      if (storedUser && storedToken) {
+        try {
+          const response = await authAPI.getMe();
+          const verifiedUser = response.data;
+          setUser(verifiedUser);
+          setToken(storedToken);
+        } catch (error) {
+          localStorage.removeItem('user');
+          localStorage.removeItem('token');
+          setUser(null);
+          setToken(null);
+        }
+      }
+      setLoading(false);
+    };
+
+    verifySession();
+  }, []);
 
   const login = async (credentials) => {
     const response = await authAPI.login(credentials);
-    const userData = response.data;
-    
-    localStorage.setItem('token', userData.token);
-    localStorage.setItem('user', JSON.stringify(userData));
-    setToken(userData.token);
-    setUser(userData);
-    return userData;
+    const payload = response.data;
+    const token = payload.token;
+    const user = payload.user || payload;
+
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+    setToken(token);
+    setUser(user);
+    return user;
   };
 
   const register = async (userData) => {
     const response = await authAPI.register(userData);
-    const data = response.data;
-    
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data));
-    setToken(data.token);
-    setUser(data);
-    return data;
+    const payload = response.data;
+    const token = payload.token;
+    const user = payload.user || payload;
+
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+    setToken(token);
+    setUser(user);
+    return user;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await authAPI.logout();
+    } catch (error) {
+      // Continue with logout even if API call fails
+    }
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setToken(null);

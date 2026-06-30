@@ -13,17 +13,21 @@ const ManageDepartments = () => {
   const [editingId, setEditingId] = useState(null);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     fetchDepartments();
   }, []);
 
   const fetchDepartments = async () => {
+    setLoadError(false);
     try {
       const response = await departmentAPI.getAll();
-      setDepartments(response.data);
-    } catch (error) {
-      console.error('Error fetching departments:', error);
+      const data = response.data;
+      setDepartments(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error fetching departments:', err);
+      setLoadError(true);
     }
   };
 
@@ -44,7 +48,7 @@ const ManageDepartments = () => {
       resetForm();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError('Failed to save department');
+      setError(err.response?.data?.message || 'Failed to save department');
       setTimeout(() => setError(''), 3000);
     }
   };
@@ -55,7 +59,7 @@ const ManageDepartments = () => {
       slaHours: dept.slaHours,
       contactEmail: dept.contactEmail,
     });
-    setEditingId(dept._id);
+    setEditingId(dept.id || dept._id);
     setShowForm(true);
   };
 
@@ -99,6 +103,16 @@ const ManageDepartments = () => {
         <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3 text-green-700">
           <CheckCircle size={20} />
           <span>{success}</span>
+        </div>
+      )}
+
+      {loadError && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between text-red-700">
+          <div className="flex items-center gap-3">
+            <AlertCircle size={20} />
+            <span>Failed to load departments. Make sure the backend server is running on port 5000.</span>
+          </div>
+          <button onClick={fetchDepartments} className="text-sm underline font-medium">Retry</button>
         </div>
       )}
 
@@ -174,7 +188,7 @@ const ManageDepartments = () => {
           </thead>
           <tbody>
             {departments.map((dept) => (
-              <tr key={dept._id} className="border-b border-gray-100 hover:bg-gray-50">
+              <tr key={dept.id || dept._id} className="border-b border-gray-100 hover:bg-gray-50">
                 <td className="py-3 px-4 text-sm font-medium text-gray-900">{dept.name}</td>
                 <td className="py-3 px-4 text-sm text-gray-600">{dept.slaHours} hours</td>
                 <td className="py-3 px-4 text-sm text-gray-600">{dept.contactEmail}</td>
@@ -188,7 +202,7 @@ const ManageDepartments = () => {
                       <Edit2 size={18} />
                     </button>
                     <button
-                      onClick={() => handleDelete(dept._id)}
+                      onClick={() => handleDelete(dept.id || dept._id)}
                       className="text-red-600 hover:text-red-700"
                       title="Delete"
                     >

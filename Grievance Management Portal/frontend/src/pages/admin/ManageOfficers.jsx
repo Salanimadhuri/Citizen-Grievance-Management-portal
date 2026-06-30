@@ -27,8 +27,8 @@ const ManageOfficers = () => {
         officerAPI.getAll(),
         departmentAPI.getAll(),
       ]);
-      setOfficers(officersRes.data);
-      setDepartments(departmentsRes.data);
+      setOfficers(officersRes.data?.data || officersRes.data || []);
+      setDepartments(departmentsRes.data?.data || departmentsRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     }
@@ -40,7 +40,7 @@ const ManageOfficers = () => {
 
     try {
       if (editingOfficer) {
-        await officerAPI.update(editingOfficer._id, {
+        await officerAPI.update(editingOfficer.id || editingOfficer._id, {
           name: formData.name,
           email: formData.email,
           phone: formData.phone,
@@ -73,7 +73,7 @@ const ManageOfficers = () => {
       email: officer.email,
       phone: officer.phone,
       password: '',
-      departmentId: officer.department?._id || '',
+      departmentId: officer.department?.id || officer.department?._id || officer.department || '',
     });
     setShowForm(true);
   };
@@ -178,7 +178,7 @@ const ManageOfficers = () => {
             >
               <option value="">Select department</option>
               {departments.map((dept) => (
-                <option key={dept._id} value={dept._id}>
+                <option key={dept.id || dept._id} value={dept.id || dept._id}>
                   {dept.name}
                 </option>
               ))}
@@ -210,7 +210,7 @@ const ManageOfficers = () => {
           </thead>
           <tbody>
             {officers.map((officer) => (
-              <tr key={officer._id} className="border-b border-gray-100 hover:bg-gray-50">
+              <tr key={officer.id || officer._id} className="border-b border-gray-100 hover:bg-gray-50">
                 <td className="py-3 px-4 text-sm font-medium text-gray-900">{officer.name}</td>
                 <td className="py-3 px-4 text-sm text-gray-600">{officer.email}</td>
                 <td className="py-3 px-4 text-sm text-gray-600">{officer.phone}</td>

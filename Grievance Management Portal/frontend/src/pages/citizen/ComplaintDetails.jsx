@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { complaintAPI } from '../../services/api';
+import { pdfAPI, complaintReopenAPI } from '../../services/api';
 import StatusBadge from '../../components/StatusBadge';
-import { MapPin, Calendar, Tag, ArrowLeft, CheckCircle } from 'lucide-react';
+import { MapPin, Calendar, Tag, ArrowLeft, CheckCircle, Download, RotateCcw } from 'lucide-react';
 
 const ComplaintDetails = () => {
   const { id } = useParams();
@@ -12,6 +13,10 @@ const ComplaintDetails = () => {
   const [complaint, setComplaint] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [reopenModal, setReopenModal] = useState(false);
+  const [reopenReason, setReopenReason] = useState('');
+  const [reopening, setReopening] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const isOfficerView = location.pathname.includes('/officer/');
 
@@ -44,6 +49,40 @@ const ComplaintDetails = () => {
     }
   };
 
+  const handleDownloadPDF = async () => {
+    try {
+      setDownloading(true);
+      const response = await pdfAPI.downloadComplaint(id);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `complaint-${id.slice(-8)}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('PDF download error:', err);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleReopen = async () => {
+    if (!reopenReason.trim()) return;
+    try {
+      setReopening(true);
+      await complaintReopenAPI.reopen(id, reopenReason);
+      setReopenModal(false);
+      setReopenReason('');
+      fetchComplaintDetails();
+    } catch (err) {
+      console.error('Reopen error:', err);
+    } finally {
+      setReopening(false);
+    }
+  };
+
   const fetchComplaintDetails = async () => {
     try {
       setLoading(true);
@@ -56,8 +95,8 @@ const ComplaintDetails = () => {
         ? await complaintAPI.getOfficerById(id)
         : await complaintAPI.getById(id);
         
-      console.log('Complaint details received:', response.data);
-      setComplaint(response.data);
+      const data = response?.data?.data || response?.data;
+      setComplaint(data);
     } catch (error) {
       console.error('Error fetching complaint details:', error);
       setError(error.response?.data?.message || 'Failed to load complaint details');
@@ -95,10 +134,31 @@ const ComplaintDetails = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
-        <ArrowLeft size={20} />
-        Back
-      </button>
+      <div className="flex items-center justify-between">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
+          <ArrowLeft size={20} />
+          Back
+        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleDownloadPDF}
+            disabled={downloading}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <Download size={16} />
+            {downloading ? 'Downloading...' : 'Download PDF'}
+          </button>
+          {!isOfficerView && complaint?.status === 'Resolved' && (
+            <button
+              onClick={() => setReopenModal(true)}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <RotateCcw size={16} />
+              Reopen
+            </button>
+          )}
+        </div>
+      </div>
 
       <div className="card">
         <div className="flex justify-between items-start mb-6">
@@ -175,6 +235,36 @@ const ComplaintDetails = () => {
           ))}
         </div>
       </div>
+      {reopenModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Reopen Complaint</h3>
+            <p className="text-sm text-gray-600 mb-4">Please provide a reason for reopening this complaint.</p>
+            <textarea
+              value={reopenReason}
+              onChange={(e) => setReopenReason(e.target.value)}
+              rows={4}
+              className="input-field resize-none mb-4"
+              placeholder="Reason for reopening..."
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={handleReopen}
+                disabled={reopening || !reopenReason.trim()}
+                className="btn-primary flex-1"
+              >
+                {reopening ? 'Reopening...' : 'Confirm Reopen'}
+              </button>
+              <button
+                onClick={() => { setReopenModal(false); setReopenReason(''); }}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

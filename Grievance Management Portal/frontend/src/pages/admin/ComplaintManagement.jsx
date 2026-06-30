@@ -30,9 +30,7 @@ const ComplaintManagement = () => {
       
       console.log('Fetching complaints for admin...');
       const response = await complaintAPI.getAll();
-      console.log('API Response:', response);
-      
-      const complaintsData = response?.data || [];
+      const complaintsData = response?.data?.data || response?.data || [];
       console.log('Complaints data:', complaintsData);
       
       setComplaints(complaintsData);
@@ -125,8 +123,8 @@ const ComplaintManagement = () => {
           <tbody>
             {filteredComplaints && filteredComplaints.length > 0 ? (
               filteredComplaints.map((complaint) => (
-                <tr key={complaint?._id || Math.random()} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="py-3 px-4 text-sm text-gray-600">#{complaint?._id?.slice(-6) || 'N/A'}</td>
+                <tr key={complaint?.id || complaint?._id || Math.random()} className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="py-3 px-4 text-sm text-gray-600">#{(complaint?.id || complaint?._id || '').slice(-6)}</td>
                   <td className="py-3 px-4 text-sm text-gray-900">
                     <div className="flex items-center gap-2">
                       {complaint?.escalated && (
@@ -161,21 +159,21 @@ const ComplaintManagement = () => {
                   <td className="py-3 px-4">
                     <div className="flex gap-2">
                       <button
-                        onClick={() => navigate(`/admin/complaints/${complaint?._id}`)}
+                        onClick={() => navigate(`/admin/complaints/${complaint?.id || complaint?._id}`)}
                         className="text-primary-700 hover:text-primary-800"
                         title="View Details"
                       >
                         <Eye size={18} />
                       </button>
                       <button
-                        onClick={() => navigate(`/admin/update-status/${complaint?._id}`)}
+                        onClick={() => navigate(`/admin/update-status/${complaint?.id || complaint?._id}`)}
                         className="text-blue-600 hover:text-blue-700"
                         title="Update Status"
                       >
                         <Edit size={18} />
                       </button>
                       <button
-                        onClick={() => navigate(`/admin/assign?complaintId=${complaint?._id}`)}
+                        onClick={() => navigate(`/admin/assign?complaintId=${complaint?.id || complaint?._id}`)}
                         className="text-green-600 hover:text-green-700"
                         title="Assign"
                       >

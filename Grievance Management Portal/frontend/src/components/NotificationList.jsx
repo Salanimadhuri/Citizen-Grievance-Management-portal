@@ -12,11 +12,16 @@ const NotificationList = ({ limit = 5 }) => {
     fetchNotifications();
   }, []);
 
+  // works whether backend returns id or _id
+  const getId = (n) => n.id || n._id;
+  const isUnread = (n) => !n.isRead && !n.read;
+
   const fetchNotifications = async () => {
     try {
       setLoading(true);
       const response = await notificationAPI.getAll();
-      setNotifications(response.data.slice(0, limit));
+      const data = response.data;
+      setNotifications(Array.isArray(data) ? data.slice(0, limit) : []);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     } finally {
@@ -27,9 +32,9 @@ const NotificationList = ({ limit = 5 }) => {
   const handleMarkAsRead = async (id) => {
     try {
       await notificationAPI.markAsRead(id);
-      setNotifications(notifications.map(n => 
-        n._id === id ? { ...n, isRead: true } : n
-      ));
+      setNotifications(prev =>
+        prev.map(n => getId(n) === id ? { ...n, isRead: true, read: true } : n)
+      );
     } catch (error) {
       console.error('Error marking as read:', error);
     }
@@ -38,20 +43,17 @@ const NotificationList = ({ limit = 5 }) => {
   const handleDelete = async (id) => {
     try {
       await notificationAPI.delete(id);
-      setNotifications(notifications.filter(n => n._id !== id));
+      setNotifications(prev => prev.filter(n => getId(n) !== id));
     } catch (error) {
       console.error('Error deleting notification:', error);
     }
   };
 
   const handleNotificationClick = (notification) => {
-    if (!notification.isRead) {
-      handleMarkAsRead(notification._id);
-    }
+    if (isUnread(notification)) handleMarkAsRead(getId(notification));
     if (notification.complaintId) {
-      // Ensure complaintId is a string, not an object
-      const complaintId = typeof notification.complaintId === 'object' 
-        ? notification.complaintId._id || notification.complaintId.toString()
+      const complaintId = typeof notification.complaintId === 'object'
+        ? notification.complaintId.id || notification.complaintId._id || notification.complaintId.toString()
         : notification.complaintId;
       navigate(`/citizen/complaints/${complaintId}`);
     }
@@ -64,8 +66,7 @@ const NotificationList = ({ limit = 5 }) => {
     if (minutes < 60) return `${minutes}m ago`;
     const hours = Math.floor(minutes / 60);
     if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
+    return `${Math.floor(hours / 24)}d ago`;
   };
 
   if (loading) {
@@ -96,9 +97,9 @@ const NotificationList = ({ limit = 5 }) => {
         <div className="space-y-2">
           {notifications.map((notification) => (
             <div
-              key={notification._id}
+              key={getId(notification)}
               className={`p-3 rounded-lg border transition-all cursor-pointer hover:shadow-sm ${
-                !notification.isRead
+                isUnread(notification)
                   ? 'bg-blue-50 border-blue-200'
                   : 'bg-gray-50 border-gray-200'
               }`}
@@ -107,27 +108,18 @@ const NotificationList = ({ limit = 5 }) => {
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    {!notification.isRead && (
+                    {isUnread(notification) && (
                       <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></span>
                     )}
-                    <h4 className="font-medium text-gray-900 text-sm">
-                      {notification.title}
-                    </h4>
+                    <h4 className="font-medium text-gray-900 text-sm">{notification.title}</h4>
                   </div>
-                  <p className="text-sm text-gray-600 line-clamp-2">
-                    {notification.message}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {getTimeAgo(notification.createdAt)}
-                  </p>
+                  <p className="text-sm text-gray-600 line-clamp-2">{notification.message}</p>
+                  <p className="text-xs text-gray-400 mt-1">{getTimeAgo(notification.createdAt)}</p>
                 </div>
                 <div className="flex gap-1 flex-shrink-0">
-                  {!notification.isRead && (
+                  {isUnread(notification) && (
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleMarkAsRead(notification._id);
-                      }}
+                      onClick={(e) => { e.stopPropagation(); handleMarkAsRead(getId(notification)); }}
                       className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-100 rounded"
                       title="Mark as read"
                     >
@@ -135,10 +127,7 @@ const NotificationList = ({ limit = 5 }) => {
                     </button>
                   )}
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(notification._id);
-                    }}
+                    onClick={(e) => { e.stopPropagation(); handleDelete(getId(notification)); }}
                     className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded"
                     title="Delete"
                   >

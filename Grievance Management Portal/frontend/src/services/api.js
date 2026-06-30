@@ -1,23 +1,44 @@
 import axios from 'axios';
 import { mockComplaints, mockDepartments, mockOfficers, mockAnalytics } from './mockData';
 
-const API_BASE_URL = 'http://localhost:5000/api';
-const USE_MOCK_DATA = false; // Set to false when backend is ready
+const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const USE_MOCK_DATA = false;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
+// Set Content-Type to application/json only for non-FormData requests
 api.interceptors.request.use((config) => {
+  if (!(config.data instanceof FormData)) {
+    config.headers['Content-Type'] = 'application/json';
+  }
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+// Unwrap Spring Boot ApiResponse wrapper automatically
+// Backend always returns: { success, message, data: <payload> }
+// After this interceptor, response.data IS the payload directly
+api.interceptors.response.use(
+  (response) => {
+    if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+      response.data = response.data.data;
+    }
+    return response;
+  },
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Mock API responses
 const mockAPI = {
@@ -68,6 +89,8 @@ const apiClient = USE_MOCK_DATA ? mockAPI : api;
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
   register: (userData) => api.post('/auth/register', userData),
+  logout: () => api.post('/auth/logout'),
+  getMe: () => api.get('/auth/me'),
 };
 
 export const complaintAPI = {
@@ -111,9 +134,18 @@ export const officerAPI = {
 };
 
 export const analyticsAPI = {
-  getStats: () => api.get('/analytics/stats'),
-  getChartData: () => api.get('/analytics/charts'),
-  getHeatmapData: (params) => api.get('/analytics/heatmap', { params }),
+  getStats: () => api.get('/admin/analytics'),
+  getChartData: () => api.get('/admin/analytics'),
+  getHeatmapData: (params) => api.get('/complaints/locations', { params }),
+};
+
+export const pdfAPI = {
+  downloadComplaint: (id) => api.get(`/pdf/complaint/${id}`, { responseType: 'blob' }),
+  downloadMyComplaints: () => api.get('/pdf/my-complaints', { responseType: 'blob' }),
+};
+
+export const complaintReopenAPI = {
+  reopen: (id, reason) => api.patch(`/complaints/${id}/reopen`, { reason }),
 };
 
 export default api;

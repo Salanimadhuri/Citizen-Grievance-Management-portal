@@ -25,7 +25,7 @@ const CitizenDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       const response = await complaintAPI.getMy();
-      const complaints = response.data;
+      const complaints = response?.data?.data || response?.data || [];
       
       const resolvedComplaints = complaints.filter(c => c.status === 'Resolved');
       const pendingFeedback = resolvedComplaints.filter(c => !c.feedbackSubmitted);

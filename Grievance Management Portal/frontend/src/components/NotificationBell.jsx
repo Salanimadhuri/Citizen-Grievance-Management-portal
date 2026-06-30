@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Bell, Check, Trash2, X } from 'lucide-react';
 import { notificationAPI } from '../services/notificationService';
 import { useNavigate } from 'react-router-dom';
+import { useWebSocket } from '../hooks/useWebSocket';
+import { useAuth } from '../context/AuthContext';
 
 const NotificationBell = () => {
   const [notifications, setNotifications] = useState([]);
@@ -10,17 +12,19 @@ const NotificationBell = () => {
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // WebSocket real-time notifications
+  useWebSocket(user?.id, (notification) => {
+    setNotifications((prev) => [notification, ...prev]);
+    if (!notification.isRead) {
+      setUnreadCount((prev) => prev + 1);
+    }
+  });
 
   useEffect(() => {
     fetchNotifications();
     fetchUnreadCount();
-
-    // Auto refresh every 30 seconds
-    const interval = setInterval(() => {
-      fetchUnreadCount();
-    }, 30000);
-
-    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -37,7 +41,8 @@ const NotificationBell = () => {
   const fetchNotifications = async () => {
     try {
       const response = await notificationAPI.getAll();
-      setNotifications(response.data);
+      const data = response.data;
+      setNotifications(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     }
@@ -46,19 +51,22 @@ const NotificationBell = () => {
   const fetchUnreadCount = async () => {
     try {
       const response = await notificationAPI.getUnreadCount();
-      setUnreadCount(response.data.count);
+      setUnreadCount(response.data?.count || 0);
     } catch (error) {
       console.error('Error fetching unread count:', error);
     }
   };
 
+  // helper — works whether backend returns id or _id
+  const getId = (n) => n.id || n._id;
+
   const handleMarkAsRead = async (id) => {
     try {
       await notificationAPI.markAsRead(id);
-      setNotifications(notifications.map(n => 
-        n._id === id ? { ...n, isRead: true } : n
-      ));
-      setUnreadCount(Math.max(0, unreadCount - 1));
+      setNotifications(prev =>
+        prev.map(n => getId(n) === id ? { ...n, isRead: true, read: true } : n)
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Error marking as read:', error);
     }
@@ -68,7 +76,7 @@ const NotificationBell = () => {
     try {
       setLoading(true);
       await notificationAPI.markAllAsRead();
-      setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true, read: true })));
       setUnreadCount(0);
     } catch (error) {
       console.error('Error marking all as read:', error);
@@ -78,27 +86,30 @@ const NotificationBell = () => {
   };
 
   const handleDelete = async (id) => {
+    if (!id) {
+      console.error('Delete failed: notification id is undefined');
+      return;
+    }
     try {
       await notificationAPI.delete(id);
-      const notification = notifications.find(n => n._id === id);
-      setNotifications(notifications.filter(n => n._id !== id));
-      if (!notification.isRead) {
-        setUnreadCount(Math.max(0, unreadCount - 1));
+      const notification = notifications.find(n => getId(n) === id);
+      setNotifications(prev => prev.filter(n => getId(n) !== id));
+      if (notification && !notification.isRead && !notification.read) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
       }
     } catch (error) {
-      console.error('Error deleting notification:', error);
+      console.error('Error deleting notification:', error?.response?.status, error?.response?.data);
     }
   };
 
   const handleNotificationClick = (notification) => {
-    if (!notification.isRead) {
-      handleMarkAsRead(notification._id);
+    if (!notification.isRead && !notification.read) {
+      handleMarkAsRead(getId(notification));
     }
     if (notification.complaintId) {
       setIsOpen(false);
-      // Ensure complaintId is a string, not an object
-      const complaintId = typeof notification.complaintId === 'object' 
-        ? notification.complaintId._id || notification.complaintId.toString()
+      const complaintId = typeof notification.complaintId === 'object'
+        ? notification.complaintId.id || notification.complaintId._id || notification.complaintId.toString()
         : notification.complaintId;
       navigate(`/citizen/complaints/${complaintId}`);
     }
@@ -167,16 +178,16 @@ const NotificationBell = () => {
               <div className="divide-y divide-gray-100">
                 {notifications.map((notification) => (
                   <div
-                    key={notification._id}
+                    key={getId(notification)}
                     className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
-                      !notification.isRead ? 'bg-blue-50' : ''
+                      !notification.isRead && !notification.read ? 'bg-blue-50' : ''
                     }`}
                     onClick={() => handleNotificationClick(notification)}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          {!notification.isRead && (
+                          {(!notification.isRead && !notification.read) && (
                             <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></span>
                           )}
                           <h4 className="font-medium text-gray-900 text-sm truncate">
@@ -191,11 +202,11 @@ const NotificationBell = () => {
                         </p>
                       </div>
                       <div className="flex gap-1 flex-shrink-0">
-                        {!notification.isRead && (
+                        {(!notification.isRead && !notification.read) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleMarkAsRead(notification._id);
+                              handleMarkAsRead(getId(notification));
                             }}
                             className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded"
                             title="Mark as read"
@@ -206,7 +217,7 @@ const NotificationBell = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDelete(notification._id);
+                            handleDelete(getId(notification));
                           }}
                           className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
                           title="Delete"

@@ -27,7 +27,7 @@ const OfficerComplaints = () => {
       setError('');
       
       const response = await complaintAPI.getOfficerComplaints();
-      const complaintsData = response?.data || [];
+      const complaintsData = response?.data?.data || response?.data || [];
       
       setComplaints(complaintsData);
       setFilteredComplaints(complaintsData);
@@ -131,7 +131,7 @@ const OfficerComplaints = () => {
       {filteredComplaints && filteredComplaints.length > 0 ? (
         <div className="grid grid-cols-1 gap-4">
           {filteredComplaints.map((complaint) => (
-            <div key={complaint._id} className="card hover:shadow-md transition-shadow">
+            <div key={complaint.id || complaint._id} className="card hover:shadow-md transition-shadow">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex-1">
                   <div className="flex items-start justify-between mb-2">
@@ -156,14 +156,14 @@ const OfficerComplaints = () => {
               </div>
               <div className="flex gap-2 pt-4 border-t border-gray-200">
                 <button
-                  onClick={() => navigate(`/officer/complaints/${complaint._id}`)}
+                  onClick={() => navigate(`/officer/complaints/${complaint.id || complaint._id}`)}
                   className="btn-secondary flex items-center gap-1 flex-1"
                 >
                   <Eye size={16} />
                   View Details
                 </button>
                 <button
-                  onClick={() => navigate(`/officer/manage/${complaint._id}`)}
+                  onClick={() => navigate(`/officer/manage/${complaint.id || complaint._id}`)}
                   className="btn-primary flex items-center gap-1 flex-1"
                 >
                   <Edit size={16} />

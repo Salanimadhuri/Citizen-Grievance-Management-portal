@@ -16,7 +16,8 @@ const Feedback = () => {
   const fetchResolvedComplaints = async () => {
     try {
       const response = await complaintAPI.getMy();
-      const resolved = response.data.filter(c => 
+      const data = response?.data?.data || response?.data || [];
+      const resolved = data.filter(c => 
         c.status === 'Resolved' && !c.feedbackSubmitted
       );
       setResolvedComplaints(resolved);
@@ -66,18 +67,18 @@ const Feedback = () => {
       ) : (
         <div className="grid grid-cols-1 gap-6">
           {resolvedComplaints.map((complaint) => (
-            <div key={complaint._id} className="card">
+            <div key={complaint.id || complaint._id} className="card">
               <h3 className="font-semibold text-lg text-gray-900 mb-2">{complaint.title}</h3>
               <p className="text-sm text-gray-600 mb-4">{complaint.category} • Resolved on {new Date(complaint.resolvedAt).toLocaleDateString()}</p>
               
-              {selectedComplaint === complaint._id ? (
+              {selectedComplaint === (complaint.id || complaint._id) ? (
                 <FeedbackForm
-                  complaintId={complaint._id}
+                  complaintId={complaint.id || complaint._id}
                   onSubmit={handleFeedbackSubmit}
                 />
               ) : (
                 <button
-                  onClick={() => setSelectedComplaint(complaint._id)}
+                  onClick={() => setSelectedComplaint(complaint.id || complaint._id)}
                   className="btn-primary"
                 >
                   Provide Feedback

@@ -1,242 +1,179 @@
-# Grievance Portal Backend
+# Citizen Grievance Portal — Spring Boot Backend
 
-Complete REST API backend for Citizen Grievance Management Portal.
+Migrated from Node.js / Express.js to Spring Boot 3.2.5 + Java 17.
 
 ## Tech Stack
 
-- **Node.js** + **Express** - Server framework
-- **MongoDB** - Database
-- **Mongoose** - ODM
-- **JWT** - Authentication
-- **bcryptjs** - Password hashing
-- **Multer** - File uploads
-- **CORS** - Cross-origin requests
+| Layer | Technology |
+|---|---|
+| Framework | Spring Boot 3.2.5 |
+| Language | Java 17 |
+| Database | MongoDB (Spring Data MongoDB) |
+| Auth | Spring Security + JWT (jjwt 0.12.5) |
+| Validation | Jakarta Bean Validation |
+| Build | Maven 3.9+ |
+| Container | Docker (multi-stage) |
 
-## Setup Instructions
-
-### 1. Install Dependencies
-
-```bash
-cd backend
-npm install
-```
-
-### 2. Configure Environment
-
-Create `.env` file (already exists):
-
-```env
-PORT=5000
-MONGODB_URI=mongodb://localhost:27017/grievance-portal
-JWT_SECRET=your_jwt_secret_key_change_in_production_12345
-NODE_ENV=development
-```
-
-### 3. Start MongoDB
-
-Make sure MongoDB is running on your system:
-
-```bash
-# Windows
-mongod
-
-# Or use MongoDB Compass
-```
-
-### 4. Run Server
-
-```bash
-# Development mode with auto-reload
-npm run dev
-
-# Production mode
-npm start
-```
-
-Server will run on: `http://localhost:5000`
-
-## API Endpoints
-
-### Authentication
-
-```
-POST /api/auth/register - Register new user
-POST /api/auth/login    - Login user
-```
-
-### Complaints
-
-```
-POST   /api/complaints              - Create complaint (Citizen)
-GET    /api/complaints              - Get all complaints (Admin)
-GET    /api/complaints/my           - Get my complaints (Citizen)
-GET    /api/complaints/assigned     - Get assigned complaints (Officer)
-GET    /api/complaints/:id          - Get complaint by ID
-PATCH  /api/complaints/:id/status   - Update status (Officer/Admin)
-DELETE /api/complaints/:id          - Delete complaint (Admin)
-```
-
-### Departments
-
-```
-POST   /api/departments     - Create department (Admin)
-GET    /api/departments     - Get all departments
-PATCH  /api/departments/:id - Update department (Admin)
-DELETE /api/departments/:id - Delete department (Admin)
-```
-
-### Admin
-
-```
-POST /api/admin/officers                      - Create officer
-GET  /api/admin/officers                      - Get all officers
-GET  /api/admin/officers/department/:deptId   - Get officers by department
-POST /api/admin/assign-complaint              - Assign complaint
-GET  /api/admin/analytics                     - Get analytics data
-```
-
-### Feedback
-
-```
-POST /api/feedback/:complaintId - Submit feedback (Citizen)
-GET  /api/feedback/:complaintId - Get feedback
-```
-
-## Authentication
-
-All protected routes require JWT token in header:
-
-```
-Authorization: Bearer <token>
-```
-
-## File Uploads
-
-Complaint images are stored in `uploads/` directory.
-
-Access uploaded files: `http://localhost:5000/uploads/filename.jpg`
-
-## Database Models
-
-### User
-- name, email, phone, password, role, department
-
-### Complaint
-- title, description, category, location, imageUrl, status, priorityScore, userId, departmentId, assignedOfficer, remarks, timestamps
-
-### Department
-- name, slaHours, contactEmail
-
-### Feedback
-- complaintId, userId, rating, comment
-
-## Testing
-
-Use Postman or Thunder Client to test APIs.
-
-### Sample Register Request
-
-```json
-POST http://localhost:5000/api/auth/register
-
-{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "phone": "1234567890",
-  "password": "password123",
-  "role": "citizen"
-}
-```
-
-### Sample Login Request
-
-```json
-POST http://localhost:5000/api/auth/login
-
-{
-  "email": "john@example.com",
-  "password": "password123"
-}
-```
-
-## Connecting Frontend
-
-Update frontend API base URL to: `http://localhost:5000/api`
-
-The frontend is already configured to connect to this backend.
+---
 
 ## Project Structure
 
 ```
-backend/
+src/main/java/com/grievance/portal/
+├── GrievancePortalApplication.java   ← Entry point
 ├── config/
-│   └── db.js                 # MongoDB connection
-├── models/
-│   ├── User.js              # User model
-│   ├── Complaint.js         # Complaint model
-│   ├── Department.js        # Department model
-│   └── Feedback.js          # Feedback model
-├── controllers/
-│   ├── authController.js    # Auth logic
-│   ├── complaintController.js
-│   ├── departmentController.js
-│   ├── adminController.js
-│   └── feedbackController.js
-├── routes/
-│   ├── authRoutes.js
-│   ├── complaintRoutes.js
-│   ├── departmentRoutes.js
-│   ├── adminRoutes.js
-│   └── feedbackRoutes.js
-├── middleware/
-│   ├── authMiddleware.js    # JWT verification
-│   ├── roleMiddleware.js    # Role-based access
-│   └── uploadMiddleware.js  # File upload
-├── utils/
-│   └── generateToken.js     # JWT token generator
-├── uploads/                 # Uploaded files
-├── .env                     # Environment variables
-├── .gitignore
-├── package.json
-└── server.js               # Main server file
+│   ├── SecurityConfig.java           ← CORS + JWT filter chain
+│   └── FileUploadConfig.java         ← Static file serving (/uploads/**)
+├── controller/
+│   ├── AuthController.java           ← POST /api/auth/**
+│   ├── ComplaintController.java      ← /api/complaints/**
+│   ├── FeedbackController.java       ← /api/feedback/**
+│   ├── CommunicationController.java  ← /api/communications/**
+│   ├── UserController.java           ← /api/users/**
+│   └── NotificationController.java   ← /api/notifications/**
+├── service/                          ← Business logic layer
+├── repository/                       ← MongoDB queries
+├── model/                            ← MongoDB documents (@Document)
+├── dto/
+│   ├── request/                      ← Validated request bodies
+│   └── response/                     ← Safe response shapes
+├── security/
+│   ├── JwtUtil.java                  ← Token generation/validation
+│   ├── JwtAuthFilter.java            ← Per-request JWT filter
+│   └── UserDetailsServiceImpl.java   ← Loads user for Spring Security
+└── exception/
+    ├── GlobalExceptionHandler.java   ← Centralised error responses
+    ├── ResourceNotFoundException.java
+    ├── UnauthorizedException.java
+    └── BadRequestException.java
 ```
 
-## Security Features
+---
 
-✅ JWT Authentication
-✅ Password hashing with bcrypt
-✅ Role-based access control
-✅ Protected routes
-✅ Input validation
-✅ CORS enabled
-✅ File upload restrictions
+## Prerequisites
 
-## Troubleshooting
+- Java 17+ (`java -version`)
+- Maven 3.8+ (`mvn -version`)
+- MongoDB 6+ running locally or Atlas URI
 
-**MongoDB Connection Error:**
-- Ensure MongoDB is running
-- Check MONGODB_URI in .env
+---
 
-**Port Already in Use:**
-- Change PORT in .env file
-- Or kill process on port 5000
+## Local Development
 
-**CORS Error:**
-- Backend has CORS enabled
-- Check frontend API base URL
+### 1. Clone and configure
 
-## Production Deployment
+```bash
+git clone <your-repo-url>
+cd grievance-portal-backend
+cp .env.example .env
+# Edit .env with your MongoDB URI and JWT secret
+```
 
-1. Set NODE_ENV=production
-2. Use strong JWT_SECRET
-3. Use MongoDB Atlas for database
-4. Deploy to Heroku/AWS/DigitalOcean
-5. Use environment variables for sensitive data
+### 2. Set environment variables
 
-## Support
+```bash
+export MONGODB_URI="mongodb://localhost:27017/grievance-portal"
+export JWT_SECRET="your-strong-secret-minimum-32-characters"
+export FRONTEND_URL="http://localhost:5173"
+```
 
-For issues, check:
-- MongoDB is running
-- All dependencies installed
-- .env file configured
-- Port 5000 is available
+### 3. Build and run
+
+```bash
+mvn clean install -DskipTests
+mvn spring-boot:run
+```
+
+API is live at: **http://localhost:5000**
+
+---
+
+## Docker Deployment
+
+### Build and run with Docker Compose (recommended)
+
+```bash
+# Set your secret
+export JWT_SECRET="your-strong-secret-minimum-32-characters"
+
+# Start backend + MongoDB
+docker-compose up -d --build
+
+# View logs
+docker-compose logs -f backend
+
+# Stop
+docker-compose down
+```
+
+### Manual Docker build
+
+```bash
+# Build image
+docker build -t grievance-portal-backend:1.0 .
+
+# Run (with external MongoDB Atlas)
+docker run -d \
+  --name grievance-backend \
+  -p 5000:5000 \
+  -e MONGODB_URI="mongodb+srv://user:pass@cluster.mongodb.net/grievance-portal" \
+  -e JWT_SECRET="your-strong-secret" \
+  -e FRONTEND_URL="https://your-frontend.com" \
+  -v $(pwd)/uploads:/app/uploads \
+  grievance-portal-backend:1.0
+```
+
+---
+
+## API Routes (100% backward compatible with Express)
+
+| Method | Route | Auth | Description |
+|---|---|---|---|
+| POST | /api/auth/register | Public | Register new user |
+| POST | /api/auth/login | Public | Login, returns JWT |
+| GET | /api/auth/me | Any | Get own profile |
+| PATCH | /api/auth/profile | Any | Update own profile |
+| GET | /api/complaints | Admin | All complaints |
+| GET | /api/complaints/my | Citizen | Own complaints |
+| GET | /api/complaints/officer | Officer | Assigned complaints |
+| GET | /api/complaints/:id | Any | Single complaint |
+| POST | /api/complaints | Citizen | Submit complaint (multipart) |
+| PATCH | /api/complaints/:id/status | Officer/Admin | Update status |
+| PATCH | /api/complaints/:id/assign | Admin | Assign officer |
+| POST | /api/feedback | Citizen | Submit feedback |
+| GET | /api/feedback/recent | Admin | Recent feedback |
+| GET | /api/feedback/officer | Officer | Own feedback |
+| GET | /api/feedback/:complaintId | Any | Complaint feedback |
+| POST | /api/communications | Any | Send message |
+| GET | /api/communications/:complaintId | Any | Get conversation |
+| GET | /api/communications/unread/count | Any | Unread count |
+| GET | /api/users/officers | Admin | List officers |
+| GET | /api/users | Admin | All users |
+| GET | /api/users/:id | Any | Single user |
+| GET | /api/notifications | Any | Own notifications |
+| PATCH | /api/notifications/read-all | Any | Mark all read |
+| PATCH | /api/notifications/:id/read | Any | Mark one read |
+
+---
+
+## Frontend Changes Required
+
+**None.** All routes, request/response shapes, and HTTP status codes are preserved.
+
+Only confirm your React `.env`:
+```env
+VITE_API_URL=http://localhost:5000
+```
+
+---
+
+## Production Deployment (Render / Railway / EC2)
+
+1. Push to GitHub
+2. Set environment variables in your hosting dashboard:
+   - `MONGODB_URI` — your Atlas connection string
+   - `JWT_SECRET` — strong random secret (min 32 chars)
+   - `FRONTEND_URL` — your deployed React app URL
+3. Build command: `mvn clean package -DskipTests`
+4. Start command: `java -jar target/grievance-portal-backend-1.0.0.jar`
+5. Port: `5000`

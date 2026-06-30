@@ -1,7 +1,7 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const ProtectedRoute = ({ children, allowedRoles }) => {
+const ProtectedRoute = ({ children, allowedRoles, requireAuth = true }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -12,11 +12,20 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     );
   }
 
-  if (!user) {
+  if (requireAuth && !user) {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
+  if (user && !requireAuth) {
+    const redirectMap = {
+      citizen: '/citizen/dashboard',
+      officer: '/officer/dashboard',
+      admin: '/admin/dashboard',
+    };
+    return <Navigate to={redirectMap[user.role] || '/'} replace />;
+  }
+
+  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />;
   }
 

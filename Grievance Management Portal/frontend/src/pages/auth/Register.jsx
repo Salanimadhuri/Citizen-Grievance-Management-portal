@@ -1,35 +1,38 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { authAPI } from '../../services/api';
+import { validatePassword, isPasswordValid } from '../../utils/passwordValidation';
 import { User, Mail, Phone, Lock, AlertCircle, CheckCircle } from 'lucide-react';
 
 const Register = () => {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    password: '',
-    confirmPassword: '',
-  });
-  const [error, setError] = useState('');
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '', confirmPassword: '' });
+  const [error, setError]     = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { register } = useAuth();
   const navigate = useNavigate();
+
+  const passwordValidation = validatePassword(formData.password);
+  const isPasswordComplete = formData.password.length > 0 && isPasswordValid(formData.password);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+    
+    if (!isPasswordValid(formData.password)) {
+      setError('Password does not meet the requirements');
       return;
     }
-
+    
+    if (formData.password !== formData.confirmPassword) { 
+      setError('Passwords do not match'); 
+      return; 
+    }
+    
     setLoading(true);
     try {
-      const { confirmPassword, ...registerData } = formData;
-      await register(registerData);
+      const { confirmPassword, ...data } = formData;
+      data.role = 'citizen';
+      await authAPI.register(data);
       setSuccess(true);
       setTimeout(() => navigate('/login'), 2000);
     } catch (err) {
@@ -50,7 +53,7 @@ const Register = () => {
             onClick={() => navigate('/')}
           />
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h1>
-          <p className="text-gray-600">Join the Grievance Portal</p>
+          <p className="text-gray-600">Join the Grievance Portal as a Citizen</p>
         </div>
 
         {error && (
@@ -59,9 +62,8 @@ const Register = () => {
             {error}
           </div>
         )}
-
         {success && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-700 text-sm">
+          <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2 text-emerald-700 text-sm">
             <CheckCircle size={18} />
             Registration successful! Redirecting to login...
           </div>
@@ -126,6 +128,20 @@ const Register = () => {
                 required
               />
             </div>
+            {formData.password && (
+              <div className="mt-2 space-y-1">
+                {passwordValidation.map((req) => (
+                  <div key={req.id} className="flex items-center gap-2 text-xs">
+                    <span className={req.valid ? 'text-emerald-600' : 'text-gray-400'}>
+                      {req.valid ? '✓' : '○'}
+                    </span>
+                    <span className={req.valid ? 'text-emerald-600' : 'text-gray-500'}>
+                      {req.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>
@@ -141,9 +157,16 @@ const Register = () => {
                 required
               />
             </div>
+            {formData.confirmPassword && formData.password && (
+              <div className="mt-2 text-xs">
+                <span className={formData.password === formData.confirmPassword ? 'text-emerald-600' : 'text-red-500'}>
+                  {formData.password === formData.confirmPassword ? '✓ Passwords match' : '✗ Passwords do not match'}
+                </span>
+              </div>
+            )}
           </div>
 
-          <button type="submit" disabled={loading} className="btn-primary w-full">
+          <button type="submit" disabled={loading || !isPasswordComplete || formData.password !== formData.confirmPassword} className="btn-primary w-full">
             {loading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>

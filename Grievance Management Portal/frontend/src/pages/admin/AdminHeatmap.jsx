@@ -1,260 +1,200 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import 'leaflet.heat';
+import 'leaflet.markercluster/dist/leaflet.markercluster.js';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { complaintAPI } from '../../services/api';
-import { MapPin, Filter, Calendar, Tag } from 'lucide-react';
+import { Filter, MapPin, Layers } from 'lucide-react';
+
+const CATEGORIES = ['Road & Infrastructure', 'Water Supply', 'Electricity', 'Waste Management', 'Public Safety', 'Other'];
+const STATUSES   = ['Submitted', 'Under Review', 'Assigned', 'In Progress', 'Resolved'];
+
+const PRIORITY_COLOR = { High: '#ef4444', Medium: '#f59e0b', Low: '#3b82f6', default: '#6b7280' };
 
 const AdminHeatmap = () => {
-  const mapRef = useRef(null);
-  const heatLayerRef = useRef(null);
-  const [filters, setFilters] = useState({
-    category: '',
-    status: '',
-    startDate: '',
-    endDate: ''
-  });
-  const [loading, setLoading] = useState(false);
-  const [trends, setTrends] = useState(null);
+  const mapRef      = useRef(null);
+  const mapInst     = useRef(null);
+  const heatRef     = useRef(null);
+  const clusterRef  = useRef(null);
+  const [filters, setFilters]   = useState({ category: '', status: '' });
+  const [mode, setMode]         = useState('heat');   // 'heat' | 'cluster'
+  const [complaints, setComplaints] = useState([]);
+  const [loading, setLoading]   = useState(false);
+  const [stats, setStats]       = useState({ total: 0, high: 0, locations: 0 });
 
-  const categories = ['Road & Infrastructure', 'Water Supply', 'Electricity', 'Waste Management', 'Public Safety', 'Other'];
-  const statuses = ['Submitted', 'Under Review', 'Assigned', 'In Progress', 'Resolved'];
-
+  // Init map once
   useEffect(() => {
-    initializeMap();
-    loadHeatmapData();
+    if (mapInst.current) return;
+    const map = L.map(mapRef.current, { zoomControl: true }).setView([20.5937, 78.9629], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors', maxZoom: 19,
+    }).addTo(map);
+    mapInst.current = map;
+    return () => { mapInst.current?.remove(); mapInst.current = null; };
   }, []);
 
-  useEffect(() => {
-    loadHeatmapData();
-  }, [filters]);
+  // Load data whenever filters change
+  useEffect(() => { fetchData(); }, [filters]);
 
-  const initializeMap = () => {
-    if (typeof window !== 'undefined' && window.L && !mapRef.current) {
-      const map = window.L.map('admin-heatmap').setView([13.0827, 80.2707], 11);
+  // Switch between heat/cluster on mode change
+  useEffect(() => { if (complaints.length) renderLayer(complaints); }, [mode]);
 
-      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map);
-
-      mapRef.current = map;
-    }
-  };
-
-  const loadHeatmapData = async () => {
+  const fetchData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      
-      if (filters.category) params.append('category', filters.category);
-      if (filters.status) params.append('status', filters.status);
-      if (filters.startDate) params.append('startDate', filters.startDate);
-      if (filters.endDate) params.append('endDate', filters.endDate);
+      const res = await complaintAPI.getLocations(filters);
+      const raw = res.data?.data || res.data || [];
+      const list = Array.isArray(raw) ? raw : [];
+      setComplaints(list);
+      const withGeo = list.filter(c => c.location?.latitude && c.location?.longitude);
+      setStats({
+        total: list.length,
+        high: list.filter(c => c.aiPriority === 'High' || c.priorityScore >= 70).length,
+        locations: withGeo.length,
+      });
+      renderLayer(list);
+    } catch { /* silent */ }
+    finally { setLoading(false); }
+  };
 
-      const response = await complaintAPI.getLocations(params);
-      const data = response.data;
-      
-      // Handle AI-enhanced response format
-      let heatmapData;
-      if (data.heatmapData) {
-        heatmapData = data.heatmapData;
-        setTrends(data.trends);
-      } else {
-        heatmapData = data;
-        setTrends(null);
-      }
+  const clearLayers = () => {
+    if (heatRef.current)    { mapInst.current?.removeLayer(heatRef.current);    heatRef.current = null; }
+    if (clusterRef.current) { mapInst.current?.removeLayer(clusterRef.current); clusterRef.current = null; }
+  };
 
-      if (mapRef.current && window.L) {
-        // Remove existing heat layer
-        if (heatLayerRef.current) {
-          mapRef.current.removeLayer(heatLayerRef.current);
-        }
+  const renderLayer = (list) => {
+    if (!mapInst.current) return;
+    clearLayers();
+    const geoComplaints = list.filter(c => c.location?.latitude && c.location?.longitude);
+    if (!geoComplaints.length) return;
 
-        // Add new heat layer with AI-enhanced intensity
-        if (heatmapData.length > 0) {
-          heatLayerRef.current = window.L.heatLayer(heatmapData, {
-            radius: 25,
-            blur: 20,
-            maxZoom: 17,
-            gradient: {
-              0.0: 'blue',
-              0.3: 'cyan',
-              0.5: 'lime',
-              0.7: 'yellow',
-              1.0: 'red'
-            }
-          }).addTo(mapRef.current);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading heatmap data:', error);
-    } finally {
-      setLoading(false);
+    if (mode === 'heat') {
+      const points = geoComplaints.map(c => {
+        const intensity = c.aiPriority === 'High' ? 1.0 : c.aiPriority === 'Medium' ? 0.6 : 0.3;
+        return [c.location.latitude, c.location.longitude, intensity];
+      });
+      heatRef.current = L.heatLayer(points, {
+        radius: 30, blur: 20, maxZoom: 17,
+        gradient: { 0.0: '#3b82f6', 0.4: '#06b6d4', 0.6: '#fbbf24', 0.85: '#f97316', 1.0: '#ef4444' },
+      }).addTo(mapInst.current);
+    } else {
+      const cluster = L.markerClusterGroup({ chunkedLoading: true });
+      geoComplaints.forEach(c => {
+        const color = PRIORITY_COLOR[c.aiPriority] || PRIORITY_COLOR.default;
+        const icon = L.divIcon({
+          className: '',
+          html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.4)"></div>`,
+          iconSize: [14, 14],
+        });
+        const marker = L.marker([c.location.latitude, c.location.longitude], { icon });
+        marker.bindPopup(`
+          <div style="min-width:180px">
+            <strong>${c.title || 'Complaint'}</strong><br/>
+            <span style="color:#6b7280;font-size:12px">${c.category || ''}</span><br/>
+            ${c.aiPriority ? `<span style="color:${color};font-weight:600;font-size:12px">Priority: ${c.aiPriority}</span><br/>` : ''}
+            <span style="font-size:12px">Status: ${c.status || ''}</span>
+          </div>`);
+        cluster.addLayer(marker);
+      });
+      clusterRef.current = cluster;
+      mapInst.current.addLayer(cluster);
     }
-  };
 
-  const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  };
-
-  const clearFilters = () => {
-    setFilters({
-      category: '',
-      status: '',
-      startDate: '',
-      endDate: ''
-    });
+    // Fit map to data bounds
+    const bounds = L.latLngBounds(geoComplaints.map(c => [c.location.latitude, c.location.longitude]));
+    if (bounds.isValid()) mapInst.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Complaint Heatmap</h1>
-        <p className="text-gray-600">Visual analysis of complaint density and priority across the city</p>
+        <p className="text-gray-500 text-sm">Geospatial analysis of complaint density across the city</p>
       </div>
 
-      {/* Filters */}
-      <div className="card">
-        <div className="flex items-center gap-2 mb-4">
-          <Filter size={20} className="text-gray-400" />
-          <h3 className="font-semibold text-gray-900">Filters</h3>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label className="label">Category</label>
-            <select
-              value={filters.category}
-              onChange={(e) => handleFilterChange('category', e.target.value)}
-              className="input-field"
-            >
-              <option value="">All Categories</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4">
+        {[
+          { label: 'Total Complaints', value: stats.total, color: 'blue' },
+          { label: 'High Priority', value: stats.high, color: 'red' },
+          { label: 'Geotagged', value: stats.locations, color: 'green' },
+        ].map(({ label, value, color }) => (
+          <div key={label} className={`bg-${color}-50 border border-${color}-200 rounded-xl p-4 text-center`}>
+            <p className={`text-2xl font-bold text-${color}-700`}>{value}</p>
+            <p className={`text-xs text-${color}-600`}>{label}</p>
           </div>
-
-          <div>
-            <label className="label">Status</label>
-            <select
-              value={filters.status}
-              onChange={(e) => handleFilterChange('status', e.target.value)}
-              className="input-field"
-            >
-              <option value="">All Statuses</option>
-              {statuses.map(status => (
-                <option key={status} value={status}>{status}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="label">Start Date</label>
-            <input
-              type="date"
-              value={filters.startDate}
-              onChange={(e) => handleFilterChange('startDate', e.target.value)}
-              className="input-field"
-            />
-          </div>
-
-          <div>
-            <label className="label">End Date</label>
-            <input
-              type="date"
-              value={filters.endDate}
-              onChange={(e) => handleFilterChange('endDate', e.target.value)}
-              className="input-field"
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-3 mt-4">
-          <button onClick={clearFilters} className="btn-secondary">
-            Clear Filters
-          </button>
-          {loading && (
-            <div className="flex items-center gap-2 text-gray-600">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
-              <span>Loading...</span>
-            </div>
-          )}
-        </div>
+        ))}
       </div>
 
-      {/* Legend */}
-      <div className="card">
-        <h3 className="font-semibold text-gray-900 mb-3">Heat Intensity Legend</h3>
-        <div className="flex items-center gap-6 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-blue-500 rounded"></div>
-            <span>Low Priority</span>
+      {/* Controls */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+        <div className="flex flex-wrap gap-4 items-end">
+          <div>
+            <label className="text-xs font-medium text-gray-600 block mb-1">Category</label>
+            <select value={filters.category} onChange={e => setFilters(f => ({ ...f, category: e.target.value }))}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">All</option>
+              {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+            </select>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-yellow-500 rounded"></div>
-            <span>Medium Priority</span>
+          <div>
+            <label className="text-xs font-medium text-gray-600 block mb-1">Status</label>
+            <select value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">All</option>
+              {STATUSES.map(s => <option key={s}>{s}</option>)}
+            </select>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-red-500 rounded"></div>
-            <span>High Priority / Escalated</span>
+          <div className="flex items-center gap-2 ml-auto">
+            <Layers size={16} className="text-gray-500" />
+            <span className="text-sm text-gray-600">View:</span>
+            <button onClick={() => setMode('heat')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${mode === 'heat' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+              Heatmap
+            </button>
+            <button onClick={() => setMode('cluster')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${mode === 'cluster' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+              Clusters
+            </button>
           </div>
+          {loading && <span className="text-sm text-gray-500 animate-pulse">Loading...</span>}
         </div>
       </div>
 
       {/* Map */}
-      <div className="card">
-        <div id="admin-heatmap" className="h-96 rounded-lg border border-gray-300"></div>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div ref={mapRef} style={{ height: '520px', width: '100%', zIndex: 0 }} />
       </div>
 
-      {/* AI Trends Analytics */}
-      {trends && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Emerging Hotspots */}
-          {trends.emergingHotspots && trends.emergingHotspots.length > 0 && (
-            <div className="card">
-              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                🔥 Emerging Hotspots
-                <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs">
-                  {trends.emergingHotspots.length}
+      {/* Legend */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+        <p className="text-sm font-semibold text-gray-700 mb-3">
+          {mode === 'heat' ? 'Heat Intensity' : 'Priority Markers'}
+        </p>
+        <div className="flex flex-wrap gap-4 text-sm">
+          {mode === 'heat' ? (
+            <div className="flex items-center gap-6">
+              {[['#3b82f6','Low'],['#fbbf24','Medium'],['#ef4444','High']].map(([c, l]) => (
+                <span key={l} className="flex items-center gap-1.5">
+                  <span style={{ background: c }} className="w-4 h-3 rounded inline-block" />
+                  {l}
                 </span>
-              </h3>
-              <div className="space-y-3 max-h-64 overflow-y-auto">
-                {trends.emergingHotspots.map((hotspot, index) => (
-                  <div key={index} className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-medium text-gray-900">Area {index + 1}</h4>
-                      <span className="text-sm text-orange-600 font-semibold">
-                        {hotspot.recentComplaints} recent
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-2">
-                      Total: {hotspot.totalComplaints} complaints
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {hotspot.categories.map((cat, i) => (
-                        <span key={i} className="px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded">
-                          {cat}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Category Trends */}
-          <div className="card">
-            <h3 className="font-semibold text-gray-900 mb-3">📊 Category Distribution</h3>
-            <div className="space-y-2">
-              {Object.entries(trends.categoryTrends || {}).map(([category, count]) => (
-                <div key={category} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                  <span className="text-sm text-gray-700">{category}</span>
-                  <span className="font-semibold text-blue-600">{count}</span>
-                </div>
               ))}
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center gap-6">
+              {Object.entries(PRIORITY_COLOR).filter(([k]) => k !== 'default').map(([k, c]) => (
+                <span key={k} className="flex items-center gap-1.5">
+                  <span style={{ background: c }} className="w-3 h-3 rounded-full inline-block" />
+                  {k}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };

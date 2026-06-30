@@ -18,7 +18,7 @@ const OfficerRequests = () => {
   const fetchRequests = async () => {
     try {
       const response = await api.get('/admin/officer-requests');
-      setRequests(response.data);
+      setRequests(response.data.data || []);
     } catch (error) {
       console.error('Error fetching requests:', error);
     } finally {
@@ -45,28 +45,30 @@ const OfficerRequests = () => {
       });
   };
 
+  const getId = (request) => request.id || request._id;
+
   const handleApprove = async (request) => {
     try {
-      await api.patch(`/admin/approve-officer/${request._id}`);
+      await api.patch(`/admin/approve-officer/${getId(request)}`);
       sendOfficerStatusEmail(request.name, request.email, 'approved');
       setSuccess('Officer approved successfully');
       fetchRequests();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError('Failed to approve officer');
+      setError(err.response?.data?.message || 'Failed to approve officer');
       setTimeout(() => setError(''), 3000);
     }
   };
 
   const handleReject = async (request) => {
     try {
-      await api.patch(`/admin/reject-officer/${request._id}`);
+      await api.patch(`/admin/reject-officer/${getId(request)}`);
       sendOfficerStatusEmail(request.name, request.email, 'rejected');
       setSuccess('Officer rejected successfully');
       fetchRequests();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError('Failed to reject officer');
+      setError(err.response?.data?.message || 'Failed to reject officer');
       setTimeout(() => setError(''), 3000);
     }
   };
@@ -110,11 +112,11 @@ const OfficerRequests = () => {
           </thead>
           <tbody>
             {requests.map((request) => (
-              <tr key={request._id} className="border-b border-gray-100 hover:bg-gray-50">
+              <tr key={request.id || request._id} className="border-b border-gray-100 hover:bg-gray-50">
                 <td className="py-3 px-4 text-sm font-medium text-gray-900">{request.name}</td>
                 <td className="py-3 px-4 text-sm text-gray-600">{request.email}</td>
                 <td className="py-3 px-4 text-sm text-gray-600">{request.phone}</td>
-                <td className="py-3 px-4 text-sm text-gray-600">{request.department?.name || 'N/A'}</td>
+                <td className="py-3 px-4 text-sm text-gray-600">{request.departmentName || 'N/A'}</td>
                 <td className="py-3 px-4">
                   <span className="px-2 py-1 rounded text-xs font-semibold bg-yellow-100 text-yellow-700 flex items-center gap-1 w-fit">
                     <Clock size={12} />

@@ -35,8 +35,8 @@ const ComplaintAssignment = () => {
         complaintAPI.getAll({ status: 'Submitted' }),
         departmentAPI.getAll(),
       ]);
-      setComplaints(complaintsRes.data);
-      setDepartments(departmentsRes.data);
+      setComplaints(Array.isArray(complaintsRes.data) ? complaintsRes.data : []);
+      setDepartments(Array.isArray(departmentsRes.data) ? departmentsRes.data : []);
     } catch (error) {
       console.error('Error fetching data:', error);
     }
@@ -45,9 +45,10 @@ const ComplaintAssignment = () => {
   const fetchOfficers = async (deptId) => {
     try {
       const response = await officerAPI.getAll();
-      console.log('All officers:', response.data);
-      const filteredOfficers = response.data.filter(officer => officer.department?._id === deptId);
-      console.log('Filtered officers for department:', deptId, filteredOfficers);
+      const allOfficers = Array.isArray(response.data) ? response.data : [];
+      const filteredOfficers = allOfficers.filter(officer =>
+        officer.department === deptId || officer.department?._id === deptId
+      );
       setOfficers(filteredOfficers);
     } catch (error) {
       console.error('Error fetching officers:', error);
@@ -62,8 +63,7 @@ const ComplaintAssignment = () => {
     try {
       await complaintAPI.assign(formData.complaintId, {
         departmentId: formData.departmentId,
-        assignedOfficer: formData.officerId,
-        priority: formData.priority,
+        officerId: formData.officerId,
       });
       setSuccess(true);
       setTimeout(() => navigate('/admin/complaints'), 2000);
@@ -106,8 +106,8 @@ const ComplaintAssignment = () => {
           >
             <option value="">Choose a complaint</option>
             {complaints.map((complaint) => (
-              <option key={complaint._id} value={complaint._id}>
-                #{complaint._id.slice(-6)} - {complaint.title} ({complaint.category})
+              <option key={complaint.id || complaint._id} value={complaint.id || complaint._id}>
+                #{(complaint.id || complaint._id || '').slice(-6)} - {complaint.title} ({complaint.category})
               </option>
             ))}
           </select>
@@ -123,7 +123,7 @@ const ComplaintAssignment = () => {
           >
             <option value="">Select department</option>
             {departments.map((dept) => (
-              <option key={dept._id} value={dept._id}>
+              <option key={dept.id || dept._id} value={dept.id || dept._id}>
                 {dept.name}
               </option>
             ))}
@@ -144,7 +144,7 @@ const ComplaintAssignment = () => {
               <option value="" disabled>No officers found for this department</option>
             )}
             {officers.map((officer) => (
-              <option key={officer._id} value={officer._id}>
+              <option key={officer.id || officer._id} value={officer.id || officer._id}>
                 {officer.name} - {officer.email}
               </option>
             ))}
